@@ -18,10 +18,27 @@ namespace communication.API.Data
         {
             var user = await _context.Users.FirstOrDefaultAsync(x => x.UserName == username);
             if (user == null) return null;
+            if (!VerifyPasswordHash(password, user.PasswordSalt, user.PasswordHash))
+                return null;
 
 
-            return new User();
+            return user;
 
+        }
+
+        private bool VerifyPasswordHash(string password, byte[] passwordSalt, byte[] passwordHash)
+        {
+            using (var hmack = new System.Security.Cryptography.HMACSHA512(passwordSalt))
+            {
+
+                var ComputedPassworddHash = hmack.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                for (var i = 0; i < ComputedPassworddHash.Length; i++)
+                {
+                    if (ComputedPassworddHash[i] != passwordHash[i])
+                        return false;
+                }
+                return true;
+            }
         }
 
         public async Task<User> Register(User user, string password)
@@ -45,9 +62,10 @@ namespace communication.API.Data
             }
         }
 
-        public Task<bool> UserExists(string username)
+        public async Task<bool> UserExists(string username)
         {
-            throw new System.NotImplementedException();
+            if (await _context.Users.AnyAsync(x => x.UserName == username)) return true;
+            return false;
         }
     }
 }
